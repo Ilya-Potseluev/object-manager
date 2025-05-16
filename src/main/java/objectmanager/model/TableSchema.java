@@ -50,4 +50,7 @@ public class TableSchema {
         return List.copyOf(fields.keySet());
     }
 
+    public String getFieldType(String fieldName) {
+        return fields.getOrDefault(fieldName, "string");
+    }
 }

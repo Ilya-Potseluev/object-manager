@@ -2,7 +2,6 @@ package objectmanager.model;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 public class DataObject {
 
@@ -13,10 +12,6 @@ public class DataObject {
 
     public String getValue(String fieldName) {
         return values.get(fieldName);
-    }
-
-    public Optional<String> getFieldValue(String fieldName) {
-        return Optional.ofNullable(values.get(fieldName));
     }
 
     public void setValue(String fieldName, String value) {

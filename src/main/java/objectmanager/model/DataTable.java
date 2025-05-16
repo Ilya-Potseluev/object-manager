@@ -13,20 +13,16 @@ public class DataTable {
         this.schema = schema;
     }
 
-    public TableSchema getSchema() {
-        return schema;
-    }
-
     public void addDataObject(DataObject dataObject) {
         dataObjects.add(dataObject);
     }
 
-    public List<DataObject> getAllObjects() {
-        return Collections.unmodifiableList(dataObjects);
+    public TableSchema getSchema() {
+        return schema;
     }
 
     public List<DataObject> getDataObjects() {
-        return getAllObjects();
+        return Collections.unmodifiableList(dataObjects);
     }
 
     public int getObjectCount() {

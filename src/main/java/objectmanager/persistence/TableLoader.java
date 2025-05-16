@@ -1,20 +1,27 @@
 package objectmanager.persistence;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import objectmanager.model.DataObject;
-import objectmanager.model.DataTable;
-import objectmanager.model.TableSchema;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-public class DataLoader {
+import org.springframework.stereotype.Component;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import objectmanager.model.DataObject;
+import objectmanager.model.DataTable;
+import objectmanager.model.TableSchema;
+
+/**
+ * Загрузчик данных из файлов
+ */
+@Component
+public class TableLoader {
 
     public Optional<DataTable> loadData(Path dataDirectory, TableSchema schema) {
         String tableName = schema.getTableName();

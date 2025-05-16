@@ -1,5 +1,10 @@
 package objectmanager.command;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 import objectmanager.command.result.CommandResult;
 import objectmanager.command.result.ErrorResult;
 import objectmanager.command.result.SuccessResult;
@@ -7,118 +12,90 @@ import objectmanager.command.result.TableResult;
 import objectmanager.model.DataObject;
 import objectmanager.model.DataTable;
 import objectmanager.model.TableSchema;
-import objectmanager.service.DatabaseManager;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.function.Predicate;
+import objectmanager.repository.TableRepository;
 
 /**
- * Команда для выборки объектов из таблицы с фильтрацией Использует паттерн
- * Strategy для разделения логики фильтрации
+ * Команда для выбора данных из таблицы по условию
  */
 public class SelectCommand extends AbstractCommand {
 
     public SelectCommand() {
-        super("select", "Выбирает объекты из таблицы с опциональной фильтрацией",
-                "select <имя_таблицы> [where <поле> <оператор> <значение>]");
+        super("select", "Выбирает данные из таблицы по условию",
+                "select <имя_таблицы> [where <поле> = <значение>]");
     }
 
     @Override
-    protected CommandResult executeCommand(DatabaseManager dbManager, List<String> args) {
+    protected CommandResult executeCommand(TableRepository tableRepository, List<String> args) {
         String tableName = args.get(0);
-
-        Optional<DataTable> tableOpt = dbManager.getTable(tableName);
-        if (tableOpt.isEmpty()) {
-            return new ErrorResult("Таблица '" + tableName + "' не найдена.");
+        
+        boolean hasWhereClause = args.size() > 1 && args.get(1).equalsIgnoreCase("where");
+        
+        Optional<DataTable> table = tableRepository.findTable(tableName);
+        if (table.isEmpty()) {
+            return new ErrorResult("Таблица не найдена: " + tableName);
         }
-
-        DataTable table = tableOpt.get();
-        TableSchema schema = table.getSchema();
-        List<DataObject> objects = table.getAllObjects();
-
-        if (objects.isEmpty()) {
-            return new SuccessResult("Таблица '" + tableName + "' не содержит объектов.");
-        }
-
-        if (args.size() > 1 && "where".equalsIgnoreCase(args.get(1)) && args.size() >= 5) {
+        
+        DataTable dataTable = table.get();
+        TableSchema schema = dataTable.getSchema();
+        
+        List<DataObject> filteredObjects;
+        
+        if (hasWhereClause) {
+            if (args.size() < 4) {
+                return new ErrorResult("Неверный формат условия WHERE. Используйте: where <поле> = <значение>");
+            }
+            
             String fieldName = args.get(2);
-            String operator = args.get(3);
-            String value = args.get(4);
-
+            
+            if (!args.get(3).equals("=")) {
+                return new ErrorResult("Поддерживается только оператор '='.");
+            }
+            
+            String value = String.join(" ", args.subList(4, args.size()));
+            
             if (!schema.getFieldNames().contains(fieldName)) {
-                return new ErrorResult("Поле '" + fieldName + "' не существует в схеме таблицы '" + tableName + "'.");
+                return new ErrorResult("Поле не найдено: " + fieldName);
             }
-
-            Predicate<DataObject> filter = createFilter(fieldName, operator, value);
-
-            objects = objects.stream().filter(filter).toList();
-
-            if (objects.isEmpty()) {
-                return new SuccessResult("Нет объектов, соответствующих условию фильтрации.");
-            }
+            
+            filteredObjects = dataTable.getDataObjects().parallelStream()
+                .filter(obj -> {
+                    String fieldValue = obj.getValue(fieldName);
+                    return fieldValue != null && fieldValue.equals(value);
+                })
+                .collect(Collectors.toList());
+        } else {
+            filteredObjects = dataTable.getDataObjects();
         }
-
-        List<String> fieldNames = schema.getFieldNames();
-
+        
+        if (filteredObjects.isEmpty()) {
+            return new SuccessResult("Не найдено объектов" + (hasWhereClause ? ", соответствующих условию." : "."));
+        }
+        
+        String title = "Найдено " + filteredObjects.size() + " объектов" + 
+            (hasWhereClause ? " по условию" : "");
+        
         TableResult.Builder resultBuilder = new TableResult.Builder()
-                .withTitle("Результаты выборки из таблицы: " + tableName)
-                .withHeaders(fieldNames);
-
-        for (DataObject obj : objects) {
-            List<String> rowData = new ArrayList<>();
-
-            for (String fieldName : fieldNames) {
-                String val = obj.getFieldValue(fieldName).orElse("<нет>");
-                rowData.add(val);
+            .withTitle(title)
+            .withHeaders(schema.getFieldNames());
+        
+        for (DataObject obj : filteredObjects) {
+            List<String> row = new ArrayList<>();
+            for (String field : schema.getFieldNames()) {
+                String value = obj.getValue(field);
+                row.add(value == null ? "" : value);
             }
-
-            resultBuilder.addRow(rowData);
+            resultBuilder.addRow(row);
         }
-
-        resultBuilder.withFooter("Всего объектов: " + objects.size());
-
-        return resultBuilder.build();
-    }
-
-    private Predicate<DataObject> createFilter(String fieldName, String operator, String value) {
-        return obj -> {
-            Optional<String> fieldValue = obj.getFieldValue(fieldName);
-
-            if (fieldValue.isEmpty()) {
-                return false;
-            }
-
-            String actualValue = fieldValue.get();
-
-            return switch (operator.toLowerCase()) {
-                case "=" ->
-                    actualValue.equals(value);
-                case "!=" ->
-                    !actualValue.equals(value);
-                case "contains" ->
-                    actualValue.contains(value);
-                case "startswith" ->
-                    actualValue.startsWith(value);
-                case "endswith" ->
-                    actualValue.endsWith(value);
-                default ->
-                    false;
-            };
-        };
+        
+        String footer = hasWhereClause ? 
+            "Условие: " + args.get(2) + " = " + String.join(" ", args.subList(4, args.size())) :
+            "Все объекты таблицы";
+            
+        return resultBuilder.withFooter(footer).build();
     }
 
     @Override
     public boolean validateArgs(List<String> args) {
-        if (args.size() < 1) {
-            return false;
-        }
-
-        if (args.size() > 1 && "where".equalsIgnoreCase(args.get(1))) {
-            return args.size() >= 5;
-        }
-
-        return true;
+        return args.size() >= 1;
     }
 }

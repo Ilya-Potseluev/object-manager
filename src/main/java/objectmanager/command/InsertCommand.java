@@ -1,19 +1,18 @@
 package objectmanager.command;
 
+import java.util.List;
+import java.util.Optional;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+
 import objectmanager.command.result.CommandResult;
 import objectmanager.command.result.ErrorResult;
 import objectmanager.command.result.SuccessResult;
 import objectmanager.model.DataObject;
 import objectmanager.model.DataTable;
 import objectmanager.model.TableSchema;
-import objectmanager.service.DatabaseManager;
-
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+import objectmanager.repository.TableRepository;
 
 /**
  * Команда для добавления новых объектов в таблицу Использует паттерн Builder
@@ -22,54 +21,43 @@ import java.util.stream.Collectors;
 public class InsertCommand extends AbstractCommand {
 
     public InsertCommand() {
-        super("insert", "Добавляет новый объект в таблицу", "insert <имя_таблицы> <json_объект>");
+        super("insert", "Добавляет новый объект в таблицу",
+                "insert <имя_таблицы> <json_объект>");
     }
 
     @Override
-    protected CommandResult executeCommand(DatabaseManager dbManager, List<String> args) {
+    protected CommandResult executeCommand(TableRepository tableRepository, List<String> args) throws Exception {
         String tableName = args.get(0);
-        String jsonData = String.join(" ", args.subList(1, args.size()));
+        String jsonStr = String.join(" ", args.subList(1, args.size()));
 
-        Optional<DataTable> tableOpt = dbManager.getTable(tableName);
+        Optional<DataTable> tableOpt = tableRepository.findTable(tableName);
         if (tableOpt.isEmpty()) {
-            return new ErrorResult("Таблица '" + tableName + "' не найдена.");
+            return new ErrorResult("Таблица не найдена: " + tableName);
         }
 
         DataTable table = tableOpt.get();
         TableSchema schema = table.getSchema();
 
         try {
-            JsonObject jsonObject = JsonParser.parseString(jsonData).getAsJsonObject();
-
-            Set<String> requiredFields = schema.getFieldNames().stream()
-                    .collect(Collectors.toSet());
-
-            Set<String> jsonFields = jsonObject.keySet();
-
-            for (String field : jsonFields) {
-                if (!requiredFields.contains(field)) {
-                    return new ErrorResult("Поле '" + field + "' не существует в схеме таблицы '" + tableName + "'.");
-                }
-            }
-
+            JsonObject jsonObj = JsonParser.parseString(jsonStr).getAsJsonObject();
             DataObject dataObject = new DataObject();
 
-            for (String fieldName : requiredFields) {
-                if (jsonObject.has(fieldName) && !jsonObject.get(fieldName).isJsonNull()) {
-                    String value = jsonObject.get(fieldName).getAsString();
-                    dataObject.setValue(fieldName, value);
+            for (String fieldName : schema.getFieldNames()) {
+                if (jsonObj.has(fieldName) && !jsonObj.get(fieldName).isJsonNull()) {
+                    dataObject.setValue(fieldName, jsonObj.get(fieldName).getAsString());
                 } else {
                     dataObject.setValue(fieldName, null);
                 }
             }
 
             table.addDataObject(dataObject);
+            
+            tableRepository.markTableAsDirty(tableName);
+            
+            return new SuccessResult("Объект успешно добавлен в таблицу '" + tableName + "'");
 
-            dbManager.saveTable(tableName);
-
-            return new SuccessResult("Объект успешно добавлен в таблицу '" + tableName + "'.");
         } catch (Exception e) {
-            return new ErrorResult("Ошибка при добавлении объекта: " + e.getMessage(), e);
+            return new ErrorResult("Ошибка при добавлении объекта: " + e.getMessage());
         }
     }
 

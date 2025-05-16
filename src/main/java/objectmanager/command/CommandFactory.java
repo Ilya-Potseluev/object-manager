@@ -1,8 +1,11 @@
 package objectmanager.command;
 
+import org.springframework.stereotype.Component;
+
 /**
  * Фабрика для создания команд (паттерн Factory Method)
  */
+@Component
 public class CommandFactory {
 
     private static final CommandFactory instance;

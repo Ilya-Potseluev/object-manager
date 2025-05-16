@@ -1,14 +1,14 @@
 package objectmanager.command;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
 import objectmanager.command.result.CommandResult;
 import objectmanager.command.result.SuccessResult;
 import objectmanager.command.result.TableResult;
 import objectmanager.model.DataTable;
-import objectmanager.service.DatabaseManager;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import objectmanager.repository.TableRepository;
 
 /**
  * Команда для отображения списка всех таблиц Использует паттерн Strategy для
@@ -17,30 +17,35 @@ import java.util.Map;
 public class ListCommand extends AbstractCommand {
 
     public ListCommand() {
-        super("list", "Показывает список всех таблиц", "list");
+        super("list", "Отображает список всех таблиц", "list");
     }
 
     @Override
-    protected CommandResult executeCommand(DatabaseManager dbManager, List<String> args) {
-        Map<String, DataTable> tables = dbManager.getAllTables();
+    protected CommandResult executeCommand(TableRepository tableRepository, List<String> args) {
+        Map<String, DataTable> tables = tableRepository.getAllTables();
 
         if (tables.isEmpty()) {
-            return new SuccessResult("В базе данных нет таблиц.");
+            return new SuccessResult("Таблицы не найдены.");
         }
 
         TableResult.Builder resultBuilder = new TableResult.Builder()
-                .withTitle("Таблицы в базе данных")
-                .withHeaders(List.of("Имя таблицы", "Кол-во объектов", "Описание"));
-
-        tables.forEach((name, table) -> {
-            List<String> row = new ArrayList<>();
-            row.add(name);
-            row.add(String.valueOf(table.getObjectCount()));
-            row.add(table.getSchema().getDescription());
-            resultBuilder.addRow(row);
-        });
-
-        return resultBuilder.build();
+            .withTitle("Доступные таблицы")
+            .withHeaders(Arrays.asList("Имя таблицы", "Кол-во объектов", "Описание"));
+        
+        for (Map.Entry<String, DataTable> entry : tables.entrySet()) {
+            String tableName = entry.getKey();
+            DataTable table = entry.getValue();
+            String description = table.getSchema().getDescription();
+            int objectCount = table.getObjectCount();
+            
+            resultBuilder.addRow(Arrays.asList(
+                tableName,
+                String.valueOf(objectCount),
+                description
+            ));
+        }
+        
+        return resultBuilder.withFooter("Всего таблиц: " + tables.size()).build();
     }
 
     @Override

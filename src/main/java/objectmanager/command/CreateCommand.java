@@ -1,17 +1,18 @@
 package objectmanager.command;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import objectmanager.command.result.CommandResult;
-import objectmanager.command.result.ErrorResult;
-import objectmanager.command.result.SuccessResult;
-import objectmanager.model.TableSchema;
-import objectmanager.service.DatabaseManager;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+
+import objectmanager.command.result.CommandResult;
+import objectmanager.command.result.ErrorResult;
+import objectmanager.command.result.SuccessResult;
+import objectmanager.model.TableSchema;
+import objectmanager.repository.TableRepository;
 
 /**
  * Команда для создания новой таблицы Использует паттерн Factory для создания
@@ -25,7 +26,7 @@ public class CreateCommand extends AbstractCommand {
     }
 
     @Override
-    protected CommandResult executeCommand(DatabaseManager dbManager, List<String> args) {
+    protected CommandResult executeCommand(TableRepository tableRepository, List<String> args) {
         String tableName = args.get(0);
         String jsonSchema = String.join(" ", args.subList(1, args.size()));
 
@@ -57,7 +58,7 @@ public class CreateCommand extends AbstractCommand {
                 schema.setDescription("Таблица " + tableName);
             }
 
-            boolean created = dbManager.createTable(schema);
+            boolean created = tableRepository.createTable(schema);
 
             if (created) {
                 return new SuccessResult("Таблица '" + tableName + "' успешно создана.");

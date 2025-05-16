@@ -1,12 +1,19 @@
 package objectmanager.command;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.springframework.stereotype.Component;
 
 /**
  * Реестр команд (паттерн Registry) Реализует также паттерн Singleton для
  * глобального доступа
  */
+@Component
 public class CommandRegistry {
 
     private static volatile CommandRegistry instance;

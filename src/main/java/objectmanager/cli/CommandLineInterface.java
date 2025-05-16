@@ -1,31 +1,43 @@
 package objectmanager.cli;
 
+import java.io.PrintStream;
+import java.util.Optional;
+import java.util.Scanner;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.springframework.stereotype.Component;
+
 import objectmanager.command.Command;
 import objectmanager.command.CommandFactory;
 import objectmanager.command.CommandParser;
 import objectmanager.command.result.CommandResult;
-import objectmanager.service.DatabaseManager;
-
-import java.io.PrintStream;
-import java.util.Optional;
-import java.util.Scanner;
+import objectmanager.exception.ExceptionHandler;
+import objectmanager.repository.TableRepository;
+import objectmanager.service.AsyncService;
 
 /**
  * Интерфейс командной строки (паттерн Facade)
  */
+@Component
 public class CommandLineInterface {
 
     private final CommandParser commandParser;
-    private final DatabaseManager databaseManager;
+    private final TableRepository tableRepository;
     private final Scanner scanner;
     private final PrintStream out;
     private final PrintStream err;
+    private final AsyncService asyncService;
+    private final ExceptionHandler exceptionHandler;
+    private final AtomicBoolean running = new AtomicBoolean(true);
 
-    public CommandLineInterface(DatabaseManager databaseManager, Scanner scanner, PrintStream out, PrintStream err) {
-        this.databaseManager = databaseManager;
+    public CommandLineInterface(TableRepository tableRepository, Scanner scanner, PrintStream out, PrintStream err, 
+            AsyncService asyncService, ExceptionHandler exceptionHandler) {
+        this.tableRepository = tableRepository;
         this.scanner = scanner;
         this.out = out;
         this.err = err;
+        this.asyncService = asyncService;
+        this.exceptionHandler = exceptionHandler;
         this.commandParser = new CommandParser();
 
         CommandFactory.getInstance().initializeCommands();
@@ -34,7 +46,7 @@ public class CommandLineInterface {
     public void start() {
         out.println("\nObject Manager CLI. Введите 'help' для списка команд или 'exit' для выхода.");
 
-        while (true) {
+        while (running.get()) {
             out.print("> ");
             String inputLine = scanner.nextLine().trim();
 
@@ -44,16 +56,30 @@ public class CommandLineInterface {
 
             processCommand(inputLine);
         }
+        
+        try {
+            out.println("Сохранение данных перед выходом...");
+            tableRepository.saveAllTables();
+            asyncService.shutdown();
+        } catch (Exception e) {
+            exceptionHandler.handleException(e, "Ошибка при сохранении данных");
+        }
     }
 
     private void processCommand(String inputLine) {
-        Optional<CommandParser.ParsedCommand> parsedCommandOpt = commandParser.parse(inputLine);
+        Optional<CommandParser.ParsedCommand> parsed = commandParser.parse(inputLine);
 
-        if (parsedCommandOpt.isPresent()) {
-            CommandParser.ParsedCommand parsedCommand = parsedCommandOpt.get();
+        if (parsed.isPresent()) {
+            CommandParser.ParsedCommand parsedCommand = parsed.get();
             try {
                 Command command = parsedCommand.getCommand();
-                CommandResult result = command.execute(databaseManager, parsedCommand.getArgs());
+                
+                if ("exit".equals(command.getName())) {
+                    running.set(false);
+                    return;
+                }
+                
+                CommandResult result = command.execute(tableRepository, parsedCommand.getArgs());
 
                 if (result.isSuccess()) {
                     out.println(result.format());
@@ -61,11 +87,11 @@ public class CommandLineInterface {
                     err.println(result.format());
                 }
             } catch (Exception e) {
-                err.println("Ошибка при выполнении команды: " + e.getMessage());
+                exceptionHandler.handleException(e, "Ошибка при выполнении команды");
             }
         } else {
             err.println("Неизвестная команда или неверный синтаксис. Введите 'help' для просмотра доступных команд.");
         }
     }
-
 }
+ 

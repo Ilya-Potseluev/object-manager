@@ -1,5 +1,9 @@
 package objectmanager.command;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
 import objectmanager.command.result.CommandResult;
 import objectmanager.command.result.ErrorResult;
 import objectmanager.command.result.SuccessResult;
@@ -7,11 +11,7 @@ import objectmanager.command.result.TableResult;
 import objectmanager.model.DataObject;
 import objectmanager.model.DataTable;
 import objectmanager.model.TableSchema;
-import objectmanager.service.DatabaseManager;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import objectmanager.repository.TableRepository;
 
 /**
  * Команда для отображения объектов в таблице Использует паттерн Decorator для
@@ -20,49 +20,41 @@ import java.util.Optional;
 public class ShowCommand extends AbstractCommand {
 
     public ShowCommand() {
-        super("show", "Показывает все объекты в таблице", "show <имя_таблицы>");
+        super("show", "Показывает содержимое таблицы", "show <имя_таблицы>");
     }
 
     @Override
-    protected CommandResult executeCommand(DatabaseManager dbManager, List<String> args) {
+    protected CommandResult executeCommand(TableRepository tableRepository, List<String> args) {
         String tableName = args.get(0);
-        Optional<DataTable> tableOpt = dbManager.getTable(tableName);
 
+        Optional<DataTable> tableOpt = tableRepository.findTable(tableName);
         if (tableOpt.isEmpty()) {
-            return new ErrorResult("Таблица '" + tableName + "' не найдена.");
+            return new ErrorResult("Таблица не найдена: " + tableName);
         }
 
         DataTable table = tableOpt.get();
         TableSchema schema = table.getSchema();
-        List<DataObject> objects = table.getAllObjects();
+        List<DataObject> objects = table.getDataObjects();
 
         if (objects.isEmpty()) {
-            return new SuccessResult("Таблица '" + tableName + "' не содержит объектов.");
+            return new SuccessResult("Таблица '" + tableName + "' пуста.");
         }
 
-        // Получаем заголовки полей из схемы
-        List<String> fieldNames = schema.getFieldNames();
-
-        // Строим таблицу результатов
         TableResult.Builder resultBuilder = new TableResult.Builder()
-                .withTitle("Объекты таблицы: " + tableName)
-                .withHeaders(fieldNames);
-
-        // Добавляем строки с объектами
+            .withTitle("Содержимое таблицы '" + tableName + "'")
+            .withHeaders(schema.getFieldNames());
+        
         for (DataObject obj : objects) {
-            List<String> rowData = new ArrayList<>();
-
-            for (String fieldName : fieldNames) {
-                String value = obj.getFieldValue(fieldName).orElse("<нет>");
-                rowData.add(value);
+            List<String> row = new ArrayList<>();
+            for (String field : schema.getFieldNames()) {
+                String value = obj.getValue(field);
+                row.add(value == null ? "" : value);
             }
-
-            resultBuilder.addRow(rowData);
+            resultBuilder.addRow(row);
         }
-
-        resultBuilder.withFooter("Всего объектов: " + objects.size());
-
-        return resultBuilder.build();
+        
+        String footer = "Всего объектов: " + objects.size();
+        return resultBuilder.withFooter(footer).build();
     }
 
     @Override

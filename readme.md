@@ -3,7 +3,7 @@
 -   Поцелуев Илья (23-ИВТ-3)
 -   Новиков Кирилл (23-ИВТ-3)
 
-# Object Manager
+# Object Manager (Spring Boot Edition)
 
 Консольное приложение (CLI) для управления простыми таблицами данных, хранящимися в JSON файлах.
 
@@ -16,9 +16,20 @@
 -   Выборка данных из таблицы с фильтрацией (`select`).
 -   Просмотр справки по командам (`help`).
 
+## Сборка
+
+```
+mvn clean package
+```
+
 ## Запуск
 
+```
 java -cp "target/classes;lib/gson-2.10.1.jar" objectmanager.Main data
+java -jar target/object-manager-1.0-SNAPSHOT.jar data
+```
+
+Где `data` - путь к рабочей директории для хранения данных.
 
 ## Примеры команд
 
@@ -48,3 +59,20 @@ java -cp "target/classes;lib/gson-2.10.1.jar" objectmanager.Main data
     ```
     exit
     ```
+
+## Технологии
+
+-   Spring Boot 3.2.0
+-   Java 17
+-   JSON (с Gson)
+
+## Шаблоны проектирования
+
+Проект использует множество шаблонов проектирования, включая:
+
+-   Command Pattern
+-   Dependency Injection (Spring)
+-   Repository Pattern
+-   Template Method
+-   Strategy
+-   Facade

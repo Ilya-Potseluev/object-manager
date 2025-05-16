@@ -1,10 +1,10 @@
 package objectmanager.command;
 
+import java.util.List;
+
 import objectmanager.command.result.CommandResult;
 import objectmanager.command.result.ErrorResult;
-import objectmanager.service.DatabaseManager;
-
-import java.util.List;
+import objectmanager.repository.TableRepository;
 
 /**
  * Базовая реализация команды с шаблонным методом (паттерн Template Method)
@@ -41,7 +41,7 @@ public abstract class AbstractCommand implements Command {
      * выполнения команды с валидацией аргументов
      */
     @Override
-    public final CommandResult execute(DatabaseManager dbManager, List<String> args) throws Exception {
+    public final CommandResult execute(TableRepository tableRepository, List<String> args) throws Exception {
 
         if (!validateArgs(args)) {
             return new ErrorResult("Неверные аргументы. Использование: " + getSyntax());
@@ -49,11 +49,11 @@ public abstract class AbstractCommand implements Command {
 
         try {
 
-            return executeCommand(dbManager, args);
+            return executeCommand(tableRepository, args);
         } catch (Exception e) {
             return new ErrorResult("Ошибка при выполнении команды: " + e.getMessage(), e);
         }
     }
 
-    protected abstract CommandResult executeCommand(DatabaseManager dbManager, List<String> args) throws Exception;
+    protected abstract CommandResult executeCommand(TableRepository tableRepository, List<String> args) throws Exception;
 }
