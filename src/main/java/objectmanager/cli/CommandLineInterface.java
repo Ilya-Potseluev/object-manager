@@ -5,11 +5,12 @@ import java.util.Optional;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import objectmanager.command.Command;
-import objectmanager.command.CommandFactory;
 import objectmanager.command.CommandParser;
+import objectmanager.command.CommandRegistry;
 import objectmanager.command.result.CommandResult;
 import objectmanager.exception.ExceptionHandler;
 import objectmanager.repository.TableRepository;
@@ -30,17 +31,18 @@ public class CommandLineInterface {
     private final ExceptionHandler exceptionHandler;
     private final AtomicBoolean running = new AtomicBoolean(true);
 
-    public CommandLineInterface(TableRepository tableRepository, Scanner scanner, PrintStream out, PrintStream err, 
-            AsyncService asyncService, ExceptionHandler exceptionHandler) {
+    public CommandLineInterface(TableRepository tableRepository, Scanner scanner,
+            @Qualifier("outputStream") PrintStream out, @Qualifier("errorStream") PrintStream err,
+            AsyncService asyncService, ExceptionHandler exceptionHandler, CommandRegistry commandRegistry, CommandParser commandParser) {
         this.tableRepository = tableRepository;
         this.scanner = scanner;
         this.out = out;
         this.err = err;
         this.asyncService = asyncService;
         this.exceptionHandler = exceptionHandler;
-        this.commandParser = new CommandParser();
+        this.commandParser = commandParser;
 
-        CommandFactory.getInstance().initializeCommands();
+        commandRegistry.initializeAllCommands();
     }
 
     public void start() {
@@ -56,7 +58,7 @@ public class CommandLineInterface {
 
             processCommand(inputLine);
         }
-        
+
         try {
             out.println("Сохранение данных перед выходом...");
             tableRepository.saveAllTables();
@@ -73,12 +75,12 @@ public class CommandLineInterface {
             CommandParser.ParsedCommand parsedCommand = parsed.get();
             try {
                 Command command = parsedCommand.getCommand();
-                
+
                 if ("exit".equals(command.getName())) {
                     running.set(false);
                     return;
                 }
-                
+
                 CommandResult result = command.execute(tableRepository, parsedCommand.getArgs());
 
                 if (result.isSuccess()) {
@@ -94,4 +96,3 @@ public class CommandLineInterface {
         }
     }
 }
- 

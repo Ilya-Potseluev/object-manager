@@ -17,9 +17,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-import objectmanager.cli.CommandLineInterface;
-import objectmanager.command.CommandFactory;
-import objectmanager.command.CommandParser;
 import objectmanager.exception.ExceptionHandler;
 import objectmanager.repository.TableRepository;
 import objectmanager.service.AsyncService;
@@ -31,7 +28,7 @@ public class AppConfig {
 
     @Value("${app.working-directory}")
     private String workingDirectoryPath;
-    
+
     @Value("${app.threads.max-pool-size:10}")
     private int maxPoolSize;
 
@@ -48,23 +45,24 @@ public class AppConfig {
             throw new IllegalArgumentException("Указан неверный путь: " + workingDirectoryPath, e);
         }
     }
-    
+
     @Bean
     public ExecutorService taskExecutor() {
         return Executors.newFixedThreadPool(
-            maxPoolSize, 
-            new ThreadFactory() {
-                private final AtomicInteger threadNumber = new AtomicInteger(1);
-                @Override
-                public Thread newThread(Runnable r) {
-                    Thread thread = new Thread(r, "object-manager-task-" + threadNumber.getAndIncrement());
-                    thread.setDaemon(true);
-                    return thread;
-                }
+                maxPoolSize,
+                new ThreadFactory() {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r, "object-manager-task-" + threadNumber.getAndIncrement());
+                thread.setDaemon(true);
+                return thread;
             }
+        }
         );
     }
-    
+
     @Bean
     public ScheduledExecutorService scheduledExecutor() {
         return Executors.newScheduledThreadPool(2, r -> {
@@ -73,7 +71,7 @@ public class AppConfig {
             return thread;
         });
     }
-    
+
     @Bean
     public AsyncService asyncService(ExecutorService taskExecutor, ScheduledExecutorService scheduledExecutor) {
         return new AsyncService(taskExecutor, scheduledExecutor);
@@ -105,28 +103,5 @@ public class AppConfig {
     @Bean
     public ExceptionHandler exceptionHandler(PrintStream errorStream) {
         return new ExceptionHandler(errorStream);
-    }
-
-    @Bean
-    public CommandParser commandParser() {
-        return new CommandParser();
-    }
-
-    @Bean
-    public CommandFactory commandFactory() {
-        CommandFactory factory = CommandFactory.getInstance();
-        factory.initializeCommands();
-        return factory;
-    }
-
-    @Bean
-    public CommandLineInterface commandLineInterface(TableRepository tableRepository,
-            Scanner scanner,
-            PrintStream outputStream,
-            PrintStream errorStream,
-            CommandParser commandParser,
-            AsyncService asyncService,
-            ExceptionHandler exceptionHandler) {
-        return new CommandLineInterface(tableRepository, scanner, outputStream, errorStream, asyncService, exceptionHandler);
     }
 }

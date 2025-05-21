@@ -1,17 +1,25 @@
 package objectmanager.command;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 /**
- * Парсер команд, преобразующий строковый ввод в команды Использует паттерн
- * Facade для скрытия сложности работы с командами
+ * Парсер команд, преобразующий строковый ввод в команды
  */
+@Component
 public class CommandParser {
 
     private final CommandRegistry commandRegistry;
 
-    public CommandParser() {
-        this.commandRegistry = CommandRegistry.getInstance();
+    @Autowired
+    public CommandParser(CommandRegistry commandRegistry) {
+        this.commandRegistry = commandRegistry;
     }
 
     public static class ParsedCommand {

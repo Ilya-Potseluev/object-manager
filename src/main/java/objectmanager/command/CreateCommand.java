@@ -5,6 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.config.ConfigurableBeanFactory;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -18,6 +22,8 @@ import objectmanager.repository.TableRepository;
  * Команда для создания новой таблицы Использует паттерн Factory для создания
  * объекта схемы
  */
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CreateCommand extends AbstractCommand {
 
     public CreateCommand() {
