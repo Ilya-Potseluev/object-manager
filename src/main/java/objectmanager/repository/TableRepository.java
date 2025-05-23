@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -24,6 +23,7 @@ import objectmanager.persistence.DataSaver;
 import objectmanager.persistence.SchemaLoader;
 import objectmanager.persistence.TableLoader;
 import objectmanager.service.AsyncService;
+import objectmanager.service.ConcurrentHashMap;
 
 @Repository
 public class TableRepository {
@@ -38,7 +38,7 @@ public class TableRepository {
     private final Map<String, Boolean> dirtyTables = new ConcurrentHashMap<>();
     private final AsyncService asyncService;
     private final ExceptionHandler exceptionHandler;
-    
+
     private ScheduledFuture<?> autosaveTask;
 
     public TableRepository(Path workingDirectory, AsyncService asyncService, ExceptionHandler exceptionHandler) {
@@ -58,11 +58,11 @@ public class TableRepository {
             Files.createDirectories(dataDirectory);
             startAutosaveTask();
         } catch (IOException e) {
-            throw new ApplicationException("Не удалось создать необходимые директории: " + 
-                tablesDirectory + " или " + dataDirectory, e);
+            throw new ApplicationException("Не удалось создать необходимые директории: "
+                    + tablesDirectory + " или " + dataDirectory, e);
         }
     }
-    
+
     private void startAutosaveTask() {
         autosaveTask = asyncService.scheduleAtFixedRate(() -> {
             try {
@@ -72,12 +72,12 @@ public class TableRepository {
             }
         }, 30, 30, TimeUnit.SECONDS);
     }
-    
+
     private synchronized void saveModifiedTables() throws IOException {
         if (dirtyTables.isEmpty()) {
             return;
         }
-        
+
         for (Map.Entry<String, Boolean> entry : dirtyTables.entrySet()) {
             if (entry.getValue()) {
                 String tableName = entry.getKey();
@@ -100,30 +100,30 @@ public class TableRepository {
             List<Path> schemaFiles = paths.filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".json"))
                     .collect(Collectors.toList());
-            
+
             for (Path schemaFile : schemaFiles) {
                 try {
                     Optional<TableSchema> schema = schemaLoader.loadSchema(schemaFile);
                     if (schema.isEmpty()) {
                         exceptionHandler.handleException(
-                            new ApplicationException("Неверный формат схемы"),
-                            "Не удалось загрузить схему из файла: " + schemaFile
+                                new ApplicationException("Неверный формат схемы"),
+                                "Не удалось загрузить схему из файла: " + schemaFile
                         );
                         continue;
                     }
-                    
+
                     TableSchema tableSchema = schema.get();
                     String tableName = tableSchema.getTableName();
-                    
+
                     Optional<DataTable> data = tableLoader.loadData(dataDirectory, tableSchema);
                     if (data.isEmpty()) {
                         exceptionHandler.handleException(
-                            new ApplicationException("Ошибка загрузки данных"),
-                            "Не удалось загрузить данные для таблицы: " + tableName
+                                new ApplicationException("Ошибка загрузки данных"),
+                                "Не удалось загрузить данные для таблицы: " + tableName
                         );
                         continue;
                     }
-                    
+
                     tables.put(tableName, data.get());
                 } catch (Exception e) {
                     exceptionHandler.handleException(e, "Ошибка при обработке файла: " + schemaFile);
@@ -151,17 +151,17 @@ public class TableRepository {
                 throw new ApplicationException("Ошибка сохранения", e);
             }
         }, asyncService.getExecutor())
-        .exceptionally(ex -> {
-            exceptionHandler.handleException((Exception)ex, "Неожиданная ошибка при сохранении таблицы " + tableName);
-            return false;
-        });
+                .exceptionally(ex -> {
+                    exceptionHandler.handleException((Exception) ex, "Неожиданная ошибка при сохранении таблицы " + tableName);
+                    return false;
+                });
     }
 
     private void saveData(Path filePath, DataTable table) throws IOException {
         if (Files.exists(filePath) && table.getObjectCount() == 0) {
             exceptionHandler.handleException(
-                new ApplicationException("Предотвращена попытка сохранения пустых данных"),
-                "Отменено сохранение пустых данных в существующий файл: " + filePath
+                    new ApplicationException("Предотвращена попытка сохранения пустых данных"),
+                    "Отменено сохранение пустых данных в существующий файл: " + filePath
             );
             return;
         }
@@ -173,7 +173,7 @@ public class TableRepository {
         if (table == null) {
             return false;
         }
-        
+
         Path dataPath = dataDirectory.resolve(tableName + ".json");
         try {
             saveData(dataPath, table);
@@ -194,10 +194,10 @@ public class TableRepository {
                 throw new ApplicationException("Ошибка сохранения таблиц", e);
             }
         }, asyncService.getExecutor())
-        .exceptionally(ex -> {
-            exceptionHandler.handleException((Exception)ex, "Неожиданная ошибка при сохранении таблиц");
-            return null;
-        });
+                .exceptionally(ex -> {
+                    exceptionHandler.handleException((Exception) ex, "Неожиданная ошибка при сохранении таблиц");
+                    return null;
+                });
     }
 
     public void saveAllTables() throws IOException {
@@ -206,7 +206,7 @@ public class TableRepository {
                 String tableName = entry.getKey();
                 DataTable table = entry.getValue();
                 Path dataPath = dataDirectory.resolve(tableName + ".json");
-                
+
                 saveData(dataPath, table);
             } catch (IOException e) {
                 exceptionHandler.handleException(e, "Ошибка при сохранении таблицы " + entry.getKey());
@@ -221,10 +221,10 @@ public class TableRepository {
         if (tables.containsKey(tableName)) {
             return false;
         }
-        
+
         DataTable newTable = new DataTable(schema);
         tables.put(tableName, newTable);
-        
+
         CompletableFuture<Void> schemaFuture = CompletableFuture.runAsync(() -> {
             try {
                 dataSaver.saveSchema(tablesDirectory, schema);
@@ -233,7 +233,7 @@ public class TableRepository {
                 throw new ApplicationException("Ошибка сохранения схемы", e);
             }
         }, asyncService.getExecutor());
-        
+
         CompletableFuture<Void> dataFuture = CompletableFuture.runAsync(() -> {
             try {
                 dataSaver.saveData(dataDirectory, newTable);
@@ -242,7 +242,7 @@ public class TableRepository {
                 throw new ApplicationException("Ошибка сохранения данных", e);
             }
         }, asyncService.getExecutor());
-        
+
         try {
             CompletableFuture.allOf(schemaFuture, dataFuture).join();
             return true;
@@ -257,12 +257,12 @@ public class TableRepository {
         if (table == null) {
             return false;
         }
-        
+
         dirtyTables.remove(tableName);
-        
+
         Path schemaPath = tablesDirectory.resolve(tableName + ".json");
         Path dataPath = dataDirectory.resolve(tableName + ".json");
-        
+
         CompletableFuture.runAsync(() -> {
             try {
                 Files.deleteIfExists(schemaPath);
@@ -271,10 +271,10 @@ public class TableRepository {
                 exceptionHandler.handleException(e, "Ошибка при удалении файлов таблицы " + tableName);
             }
         }, asyncService.getExecutor());
-        
+
         return true;
     }
-    
+
     public void markTableAsDirty(String tableName) {
         dirtyTables.put(tableName, true);
     }

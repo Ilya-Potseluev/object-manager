@@ -11,9 +11,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
@@ -24,6 +26,7 @@ import objectmanager.service.AsyncService;
 @Configuration
 @EnableAsync
 @EnableScheduling
+@EnableAspectJAutoProxy(proxyTargetClass = true)
 public class AppConfig {
 
     @Value("${app.working-directory}")
@@ -73,7 +76,8 @@ public class AppConfig {
     }
 
     @Bean
-    public AsyncService asyncService(ExecutorService taskExecutor, ScheduledExecutorService scheduledExecutor) {
+    public AsyncService asyncService(@Qualifier("taskExecutor") ExecutorService taskExecutor,
+            @Qualifier("scheduledExecutor") ScheduledExecutorService scheduledExecutor) {
         return new AsyncService(taskExecutor, scheduledExecutor);
     }
 
@@ -101,7 +105,7 @@ public class AppConfig {
     }
 
     @Bean
-    public ExceptionHandler exceptionHandler(PrintStream errorStream) {
+    public ExceptionHandler exceptionHandler(@Qualifier("errorStream") PrintStream errorStream) {
         return new ExceptionHandler(errorStream);
     }
 }
